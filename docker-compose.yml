@@ -1,0 +1,25 @@
+version: "3.7"
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        app_name: $APP_NAME
+        bundle_path: $BUNDLE_PATH
+    volumes:
+      - .:$REPO_PATH
+      - bundle:$BUNDLE_PATH
+    tty: true
+  guard:
+    image: "${APP_NAME}_app:latest"
+    volumes:
+      - .:$REPO_PATH
+      - bundle:$BUNDLE_PATH
+    command: bundle exec guard --no-interactions
+    tty: true
+    depends_on:
+      - app
+
+volumes:
+  bundle:

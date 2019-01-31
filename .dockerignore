@@ -1,0 +1,9 @@
+.dockerignore
+docker-compose.yml
+Dockerfile
+.env
+
+log
+tmp
+
+.rspec_status
