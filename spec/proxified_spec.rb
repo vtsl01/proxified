@@ -13,18 +13,18 @@ RSpec.describe Proxified do
     subject { client.new }
 
     context 'when given no block' do
-      it 'raises a ArgumentError' do
+      it 'raises an ArgumentError' do
         expect { client.proxify(:foo) }.to raise_error(ArgumentError)
       end
     end
 
     context 'when given no methods' do
-      it 'raises a ArgumentError' do
+      it 'raises an ArgumentError' do
         expect { client.proxify { 'hi' } }.to raise_error(ArgumentError)
       end
     end
 
-    context 'when given any methods and a block' do
+    context 'when given some methods and a block' do
       before { client.proxify(:foo, :bar) { |name| super(name.upcase) } }
 
       it 'defines a proxy method that takes the block args for each method' do
@@ -107,7 +107,7 @@ RSpec.describe Proxified do
     end
   end
 
-  describe 'when a method is added to a class' do
+  describe 'when a method is added to the client' do
     subject { client.new }
 
     context 'and it has not been proxified' do
@@ -129,7 +129,7 @@ RSpec.describe Proxified do
     end
   end
 
-  describe 'when a method is removed from a class' do
+  describe 'when a method is removed from the client' do
     before { client.proxify(:foo) { 'bar' } }
 
     before { client.define_method(:foo) { 'foo' } }
