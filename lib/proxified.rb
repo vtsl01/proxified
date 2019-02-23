@@ -8,34 +8,33 @@ module Proxified
   extend ::ActiveSupport::Concern
 
   included do
-    # Stores the methods to proxify allowing descendants to override them
+    # Stores the methods to _proxify_ allowing descendants to override them
     # without affecting the parent.
     class_attribute :proxified_methods, default: {}, instance_accessor: false
   end
 
   class_methods do
-    # For each +method+ in +methods+, defines a +proxified_method+ that runs
-    # the given +block+ when +method+ is called, or raises ArgumentError if no
-    # block or no method is given.
+    # For each +method+ in +methods+, defines a _proxified_method_ that
+    # runs the given +block+ when +method+ is called, or raises ArgumentError
+    # if no +block+ or no +method+ is given.
     #
-    # In order to not change the class interface, a method is only +proxified+
+    # In order not to change the class interface, a method is only _proxified_
     # when the corresponding instance method is defined (before or after the
-    # proxy definition), while a +proxified_method+ is removed whenever the
+    # proxy definition), while a _proxified_method_ is removed whenever the
     # corresponding instance method is removed from the class. Moreover, the
-    # +proxified_methods+ take the arguments specified by the +block+, so the
+    # _proxified_methods_ take the arguments specified by the +block+, so the
     # +block+ should take the same arguments as the original +methods+
     # (although it can take any number of arguments). Finally, it's possible
-    # to call the actual +methods+ invoking +super+ inside the +block+.
+    # to call the original +methods+ invoking +super+ inside the +block+.
     #
-    # The +proxified_methods+ are defined in a proxy module that is prepended
-    # automatically to the class only the first time a +proxified_method+ is
-    # defined within that class and the proxy module's name is prefixed with the
-    # class name. In this way, descendants who redefine a +proxified_method+
-    # get their own proxy module, while those who do not redefine a
-    # +proxified_method+ get the parent's proxy module.
+    # The _proxified_methods_ are defined in a proxy module that is prepended
+    # automatically to the class only the first time a _proxified_method_ is
+    # defined within that class. In this way, descendants who redefine a
+    # _proxified_method_ get their own proxy module, while those who do not
+    # redefine a _proxified_method_ get the parent's proxy module.
     #
-    # Beware: if a child redefines a +proxified_method+ to call +super+, the
-    # parent's +proxified_method+ will be called.
+    # Beware: if a child redefines a _proxified_method_ to call _super_, the
+    # parent's _proxified_method_ will be called.
     #
     # ======Examples
     #
@@ -144,7 +143,8 @@ module Proxified
       end
     end
 
-    # Removes +methods+ from the proxy.
+    # Unproxifies the given +methods+ removing them from the proxy. If no
+    # +methods+ are given, all the _proxified_methods_ are removed.
     #
     # ======Examples
     #
@@ -178,20 +178,51 @@ module Proxified
     #   a.welcome('jack') => 'welcome jack!';
     #   a.goodbye('jack') => 'checking jack'; 'goodbye jack!';
     def unproxify(*methods)
+      methods = proxified_methods.keys if methods.empty?
+
       self.proxified_methods = proxified_methods.except(*methods)
 
       methods.each { |method| remove_proxy_method(method) }
     end
 
-    # Checks whether +method+ has been proxified.
-    def proxified?(method)
-      method.in?(proxified_methods)
+    # If given no +method+, checks whether any instance method is _proxified_,
+    # otherwise it checks for the given +method+.
+    #
+    # ======Examples
+    #
+    #   class A
+    #     include Proxified
+    #
+    #     proxify :welcome, :goodbye do |name|
+    #       super(name.upcase)
+    #     end
+    #
+    #     def welcome(name)
+    #       puts "hello #{name}!"
+    #     end
+    #
+    #     def goodbye(name)
+    #       puts "goodbye #{name}!"
+    #     end
+    #   end
+    #
+    #   A.proxified?           => true
+    #   A.proxified?(:welcome) => true
+    #   A.proxified?(:goodbye) => true
+    #
+    #   A.unproxify(:goodbye)
+    #
+    #   A.proxified?           => true
+    #   A.proxified?(:welcome) => true
+    #   A.proxified?(:goodbye) => false
+    def proxified?(method = nil)
+      method.nil? ? proxified_methods.any? : method.in?(proxified_methods)
     end
 
     private
 
     # Adds the +method+ to the proxy only if it has been proxified.
-    def method_added(method)
+    def method_added(method) # :nodoc:
       # Don't do nothing if the attribute is not defined and initialized yet
       return unless respond_to?(:proxified_methods) && proxified_methods?
 
@@ -199,7 +230,7 @@ module Proxified
     end
 
     # Unproxifies the +method+ only if it has been proxified.
-    def method_removed(method)
+    def method_removed(method) # :nodoc:
       # Don't do nothing if the attribute is not defined and initialized yet
       return unless respond_to?(:proxified_methods) && proxified_methods?
 
@@ -207,19 +238,19 @@ module Proxified
     end
 
     # Defines the +method+ in the proxy module.
-    def add_proxy_method(method)
+    def add_proxy_method(method) # :nodoc:
       # Redefine to avoid warnings if the method has already been defined
       proxy.redefine_method(method, &proxified_methods[method])
     end
 
     # Removes the +method+ from the proxy module.
-    def remove_proxy_method(method)
+    def remove_proxy_method(method) # :nodoc:
       proxy.remove_method(method) if proxy.method_defined?(method)
     end
 
     # Returns the proxy module prepending it only if it's not already present
     # in this class.
-    def proxy
+    def proxy # :nodoc:
       return const_get('Proxy', false) if const_defined?('Proxy', false)
 
       const_set('Proxy', Module.new).tap { |proxy| prepend proxy }

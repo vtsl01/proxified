@@ -27,13 +27,13 @@ RSpec.describe Proxified do
     context 'when given some methods and a block' do
       before { client.proxify(:foo, :bar) { |name| super(name.upcase) } }
 
-      it 'defines a proxy method that takes the block args for each method' do
+      it 'for each method defines a proxy method that takes the block args' do
         %i[foo bar].each do |method|
           expect { subject.send(method) }.to raise_error(ArgumentError)
         end
       end
 
-      it 'defines a proxy method that runs the given block for each method' do
+      it 'for each method defines a proxy method that runs the given block' do
         %i[foo bar].each do |method|
           expect(subject.send(method, 'jack')).to eq("#{method} JACK")
         end
@@ -50,7 +50,7 @@ RSpec.describe Proxified do
       before { client.proxify(:foo, :bar) { |name| super(name.upcase) } }
       before { client.proxify(:foo, :bar) { |name| super(name.upcase + '!') } }
 
-      it 'redefines the proxy methods' do
+      it 'redefines the proxified methods' do
         %i[foo bar].each do |method|
           expect(subject.send(method, 'jack')).to eq("#{method} JACK!")
         end
@@ -67,43 +67,73 @@ RSpec.describe Proxified do
 
     before { client.proxify(:foo, :bar, :biz) { |name| super(name.upcase) } }
 
-    before { client.unproxify(:foo, :bar) }
-
     subject { client.new }
 
-    it 'removes the given methods from the proxy' do
-      %i[foo bar].each do |method|
-        expect(subject.send(method, 'jack')).to eq("#{method} jack")
+    describe 'when given no methods' do
+      before { client.unproxify }
+
+      it 'unproxifies all the proxified methods' do
+        %i[foo bar biz].each do |method|
+          expect(subject.send(method, 'jack')).to eq("#{method} jack")
+        end
+      end
+
+      it 'does not remove other instance methods' do
+        expect(subject.baz('jack')).to eq('baz jack')
       end
     end
 
-    it 'does not remove other proxy methods' do
-      expect(subject.biz('jack')).to eq('biz JACK')
-    end
+    describe 'when given some methods' do
+      before { client.unproxify(:foo, :bar) }
 
-    it 'does not remove other instance methods' do
-      expect(subject.baz('jack')).to eq('baz jack')
+      it 'unproxifies the given methods' do
+        %i[foo bar].each do |method|
+          expect(subject.send(method, 'jack')).to eq("#{method} jack")
+        end
+      end
+
+      it 'does not unproxify other proxified methods' do
+        expect(subject.biz('jack')).to eq('biz JACK')
+      end
+
+      it 'does not remove other instance methods' do
+        expect(subject.baz('jack')).to eq('baz jack')
+      end
     end
   end
 
   describe '.proxified?' do
     before { client.define_method(:foo) { 'foo' } }
 
-    context 'when the method has not been proxified' do
-      it { expect(client.proxified?(:foo)).to be false }
+    describe 'when given no method' do
+      context 'and no method has been proxified' do
+        it { expect(client.proxified?).to be false }
+      end
+
+      context 'and at least a method has been proxified' do
+        before { client.proxify(:foo) { super.upcase } }
+
+        it { expect(client.proxified?).to be true }
+      end
     end
 
-    context 'when the method has been proxified' do
-      before { client.proxify(:foo) { super.upcase } }
+    describe 'when given a method' do
+      context 'and the method has not been proxified' do
+        it { expect(client.proxified?(:foo)).to be false }
+      end
 
-      it { expect(client.proxified?(:foo)).to be true }
-    end
+      context 'and the method has been proxified' do
+        before { client.proxify(:foo) { super.upcase } }
 
-    context 'when the method has been proxified and then unproxified' do
-      before { client.proxify(:foo) { super.upcase } }
-      before { client.unproxify(:foo) }
+        it { expect(client.proxified?(:foo)).to be true }
+      end
 
-      it { expect(client.proxified?(:foo)).to be false }
+      context 'and the method has been proxified and then unproxified' do
+        before { client.proxify(:foo) { super.upcase } }
+        before { client.unproxify(:foo) }
+
+        it { expect(client.proxified?(:foo)).to be false }
+      end
     end
   end
 
