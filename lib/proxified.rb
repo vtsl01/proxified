@@ -3,7 +3,8 @@
 require 'active_support'
 require 'active_support/core_ext'
 
-# =====Allows to "proxify" and "unproxify" any instance method with custom code and to inherit and change the behaviour down the class hierarchy.
+# Allows to _proxify_ and _unproxify_ any instance method of a class with
+# custom code and to inherit and change the behaviour down the class hierarchy.
 module Proxified
   extend ::ActiveSupport::Concern
 
@@ -14,140 +15,31 @@ module Proxified
   end
 
   class_methods do
-    # For each +method+ in +methods+, defines a _proxified_method_ that
+    # For each +method+ in +methods+, defines a _proxified_ _method_ that
     # runs the given +block+ when +method+ is called, or raises ArgumentError
-    # if no +block+ or no +method+ is given.
+    # if no +block+ or no +methods+ are given.
     #
     # In order not to change the class interface, a method is only _proxified_
     # when the corresponding instance method is defined (before or after the
-    # proxy definition), while a _proxified_method_ is removed whenever the
+    # proxy definition), while a _proxified_ _method_ is removed whenever the
     # corresponding instance method is removed from the class. Moreover, the
-    # _proxified_methods_ take the arguments specified by the +block+, so the
-    # +block+ should take the same arguments as the original +methods+
-    # (although it can take any number of arguments). Finally, it's possible
-    # to call the original +methods+ invoking +super+ inside the +block+.
+    # _proxified_ _methods_ take the arguments specified by the +block+, so the
+    # +block+ should take the same arguments as the original +methods+.
+    # Finally, it's possible to call the original +methods+ invoking +super+
+    # inside the +block+.
     #
-    # The _proxified_methods_ are defined in a proxy module that is prepended
-    # automatically to the class only the first time a _proxified_method_ is
-    # defined within that class. In this way, descendants who redefine a
-    # _proxified_method_ get their own proxy module, while those who do not
-    # redefine a _proxified_method_ get the parent's proxy module.
+    # The _proxified_ _methods_ are defined in a proxy module that is
+    # automatically prepended to the class only the first time a _proxified_
+    # _method_ is defined within that class. In this way, descendants who
+    # redefine a _proxified_ _method_ get their own proxy module, while those
+    # who do not redefine a _proxified_ _method_ get the parent's proxy module.
     #
-    # Beware: if a child redefines a _proxified_method_ to call _super_, the
-    # parent's _proxified_method_ will be called.
+    # Beware: if a child redefines a _proxified_ _method_ to call +super+, the
+    # parent's _proxified_ _method_ will be called.
     #
     # ======Examples
     #
     # Basic usage:
-    #   class A
-    #     include Proxified
-    #
-    #     proxify :welcome, :goodbye do |name|
-    #       check(name)
-    #       super(name)
-    #     end
-    #
-    #     def check(name)
-    #       puts "checking #{name}"
-    #     end
-    #
-    #     def welcome(name)
-    #       puts "hello #{name}!"
-    #     end
-    #
-    #     def goodbye(name)
-    #       puts "goodbye #{name}!"
-    #     end
-    #   end
-    #
-    #   A.ancestors => [A::Proxy, A, Proxified, ...]
-    #
-    #   a = A.new
-    #   a.welcome('jack') => 'checking jack'; 'welcome jack!';
-    #   a.goodbye('jack') => 'checking jack'; 'goodbye jack!';
-    #   a.welcome => raises ArgumentError
-    #   a.check('jack') => 'checking jack' # not proxified
-    #
-    # Just inheriting:
-    #   class B < A; end
-    #
-    #   B.ancestors => [B, A::Proxy, A, Proxified, ...]
-    #
-    #   b = B.new
-    #   b.welcome('jack') => 'checking jack'; 'welcome jack!';
-    #   b.goodbye('jack') => 'checking jack'; 'goodbye jack!';
-    #
-    # Redefining a +proxified_method+:
-    #   class C < A
-    #     def welcome(name)
-    #       puts "welcome #{name.upcase}!"
-    #     end
-    #   end
-    #
-    #   C.ancestors => [C::Proxy, C, A::Proxy, A, Proxified, ...]
-    #
-    #   c = C.new
-    #   c.welcome('jack') => 'checking jack'; 'welcome JACK!';
-    #   c.goodbye('jack') => 'checking jack'; 'goodbye jack!';
-    #
-    # Reproxifing a +proxified_method+:
-    #   class D < A
-    #     proxify :welcome do |name|
-    #       super(name.upcase)
-    #     end
-    #   end
-    #
-    #   D.ancestors => [D::Proxy, D, A::Proxy, A, Proxified, ...]
-    #
-    #   d = D.new
-    #   d.welcome('jack') => 'checking JACK'; 'welcome JACK!';
-    #   d.goodbye('jack') => 'checking jack'; 'goodbye jack!';
-    #
-    # Reproxifing and redefining a +proxified_method+:
-    #   class E < A
-    #     proxify :welcome do |name|
-    #       super(name.upcase)
-    #     end
-    #
-    #     def welcome(name)
-    #       puts "hello #{name}!"
-    #     end
-    #   end
-    #
-    #   E.ancestors => [E::Proxy, E, A::Proxy, A, Proxified, ...]
-    #
-    #   e = E.new
-    #   e.welcome('jack') => 'hello JACK!';
-    #   e.goodbye('jack') => 'checking jack'; 'goodbye jack!';
-    #
-    # Redefining a +proxified_method+ to call +super+:
-    #   class F < A
-    #     def welcome(name)
-    #       super(name)
-    #       puts 'hi'
-    #     end
-    #   end
-    #
-    #   F.ancestors => [F::Proxy, F, A::Proxy, A, Proxified, ...]
-    #
-    #   f = F.new
-    #   f.welcome('tom')  => 'checking tom'; 'checking tom'; 'welcome tom!'; 'hi';
-    #   f.goodbye('jack') => 'checking jack'; 'goodbye jack!';
-    def proxify(*methods, &block)
-      raise ArgumentError, 'no block given' unless block_given?
-      raise ArgumentError, 'no methods given' if methods.empty?
-
-      methods.each do |method|
-        self.proxified_methods = proxified_methods.merge(method => block)
-        add_proxy_method(method) if method_defined?(method)
-      end
-    end
-
-    # Unproxifies the given +methods+ removing them from the proxy. If no
-    # +methods+ are given, all the _proxified_methods_ are removed.
-    #
-    # ======Examples
-    #
     #   class A
     #     include Proxified
     #
@@ -169,14 +61,128 @@ module Proxified
     #     end
     #   end
     #
+    #   A.ancestors => [A::Proxy, A, Proxified, ...]
+    #
     #   a = A.new
     #   a.welcome('jack') => 'checking jack'; 'welcome jack!';
     #   a.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    #   a.welcome => raises ArgumentError
+    #   a.check('jack') => 'checking jack' # not proxified
     #
-    #   a.class.unproxify(:welcome)
     #
-    #   a.welcome('jack') => 'welcome jack!';
-    #   a.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    # Just inheriting:
+    #   class B < A; end
+    #
+    #   B.ancestors => [B, A::Proxy, A, Proxified, ...]
+    #
+    #   b = B.new
+    #   b.welcome('jack') => 'checking jack'; 'welcome jack!';
+    #   b.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    #
+    #
+    # Inheriting and redefining a _proxified_ _method_:
+    #   class C < A
+    #     def welcome(name)
+    #       puts "welcome #{name.upcase}!"
+    #     end
+    #   end
+    #
+    #   C.ancestors => [C::Proxy, C, A::Proxy, A, Proxified, ...]
+    #
+    #   c = C.new
+    #   c.welcome('jack') => 'checking jack'; 'welcome JACK!';
+    #   c.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    #
+    #
+    # Inheriting and _reproxifing_ a _proxified_ _method_:
+    #   class D < A
+    #     proxify :welcome do |name|
+    #       super(name.upcase)
+    #     end
+    #   end
+    #
+    #   D.ancestors => [D::Proxy, D, A::Proxy, A, Proxified, ...]
+    #
+    #   d = D.new
+    #   d.welcome('jack') => 'checking JACK'; 'welcome JACK!';
+    #   d.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    #
+    #
+    # Inheriting, _reproxifing_ and redefining a _proxified_ _method_:
+    #   class E < A
+    #     proxify :welcome do |name|
+    #       super(name.upcase)
+    #     end
+    #
+    #     def welcome(name)
+    #       puts "hello #{name}!"
+    #     end
+    #   end
+    #
+    #   E.ancestors => [E::Proxy, E, A::Proxy, A, Proxified, ...]
+    #
+    #   e = E.new
+    #   e.welcome('jack') => 'hello JACK!';
+    #   e.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    #
+    #
+    # Inheriting and redefining a _proxified_ _method_ to call +super+:
+    #   class F < A
+    #     def welcome(name)
+    #       super(name)
+    #       puts 'hi'
+    #     end
+    #   end
+    #
+    #   F.ancestors => [F::Proxy, F, A::Proxy, A, Proxified, ...]
+    #
+    #   f = F.new
+    #   f.welcome('jack') => 'checking jack'; 'checking jack'; 'welcome jack!'; 'hi';
+    #   f.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    def proxify(*methods, &block)
+      raise ArgumentError, 'no block given' unless block_given?
+      raise ArgumentError, 'no methods given' if methods.empty?
+
+      methods.each do |method|
+        self.proxified_methods = proxified_methods.merge(method => block)
+        add_proxy_method(method) if method_defined?(method)
+      end
+    end
+
+    # Unproxifies the given +methods+ removing them from the proxy module. If no
+    # +methods+ are given, all the _proxified_ _methods_ are removed.
+    #
+    # ======Examples
+    #
+    #   class A
+    #     include Proxified
+    #
+    #     proxify :foo, :bar, :biz do
+    #       super().upcase
+    #     end
+    #
+    #     def foo
+    #       'foo'
+    #     end
+    #
+    #     def bar
+    #       'bar'
+    #     end
+    #
+    #     def biz
+    #       'biz'
+    #     end
+    #   end
+    #
+    #   A.unproxify(:foo)
+    #   a.foo => 'foo;
+    #   a.bar => 'BAR'
+    #   a.biz => 'BIZ'
+    #
+    #   A.unproxify
+    #   a.foo => 'foo;
+    #   a.bar => 'bar'
+    #   a.biz => 'biz'
     def unproxify(*methods)
       methods = proxified_methods.keys if methods.empty?
 
@@ -193,28 +199,39 @@ module Proxified
     #   class A
     #     include Proxified
     #
-    #     proxify :welcome, :goodbye do |name|
-    #       super(name.upcase)
+    #     proxify :foo, :bar do |name|
+    #       super().upcase
     #     end
     #
-    #     def welcome(name)
-    #       puts "hello #{name}!"
+    #     def foo
+    #       'foo'
     #     end
     #
-    #     def goodbye(name)
-    #       puts "goodbye #{name}!"
+    #     def bar
+    #       'bar'
+    #     end
+    #
+    #     def biz
+    #       'biz'
     #     end
     #   end
     #
-    #   A.proxified?           => true
-    #   A.proxified?(:welcome) => true
-    #   A.proxified?(:goodbye) => true
+    #   A.proxified?       => true
+    #   A.proxified?(:foo) => true
+    #   A.proxified?(:bar) => true
+    #   A.proxified?(:biz) => false
     #
-    #   A.unproxify(:goodbye)
+    #   A.unproxify(:foo)
+    #   A.proxified?       => true
+    #   A.proxified?(:foo) => false
+    #   A.proxified?(:bar) => true
+    #   A.proxified?(:biz) => false
     #
-    #   A.proxified?           => true
-    #   A.proxified?(:welcome) => true
-    #   A.proxified?(:goodbye) => false
+    #   A.unproxify(:bar)
+    #   A.proxified?       => false
+    #   A.proxified?(:foo) => false
+    #   A.proxified?(:bar) => false
+    #   A.proxified?(:biz) => false
     def proxified?(method = nil)
       method.nil? ? proxified_methods.any? : method.in?(proxified_methods)
     end

@@ -6,11 +6,9 @@ RSpec.describe Proxified do
   describe '.proxify' do
     before do
       %i[foo bar biz baz].each do |method|
-        client.define_method(method) { |name| "#{method} #{name}" }
+        client.define_method(method) { |name| "#{method}: #{name}" }
       end
     end
-
-    subject { client.new }
 
     context 'when given no block' do
       it 'raises an ArgumentError' do
@@ -20,39 +18,39 @@ RSpec.describe Proxified do
 
     context 'when given no methods' do
       it 'raises an ArgumentError' do
-        expect { client.proxify { 'hi' } }.to raise_error(ArgumentError)
+        expect { client.proxify { 'proxified' } }.to raise_error(ArgumentError)
       end
     end
 
-    context 'when given some methods and a block' do
-      before { client.proxify(:foo, :bar) { |name| super(name.upcase) } }
+    context 'when the given methods are not proxified' do
+      before { client.proxify(:foo, :bar) { |name| super(name + '-proxy') } }
 
       it 'for each method defines a proxy method that takes the block args' do
         %i[foo bar].each do |method|
-          expect { subject.send(method) }.to raise_error(ArgumentError)
+          expect { client.new.send(method) }.to raise_error(ArgumentError)
         end
       end
 
       it 'for each method defines a proxy method that runs the given block' do
         %i[foo bar].each do |method|
-          expect(subject.send(method, 'jack')).to eq("#{method} JACK")
+          expect(client.new.send(method, 'jack')).to eq("#{method}: jack-proxy")
         end
       end
 
-      it 'does not define a proxy method for other instance methods' do
+      it 'does not affect other instance methods' do
         %i[biz baz].each do |method|
-          expect(subject.send(method, 'jack')).to eq("#{method} jack")
+          expect(client.new.send(method, 'jack')).to eq("#{method}: jack")
         end
       end
     end
 
-    context 'when called more than once with the same methods' do
-      before { client.proxify(:foo, :bar) { |name| super(name.upcase) } }
-      before { client.proxify(:foo, :bar) { |name| super(name.upcase + '!') } }
+    context 'when the given methods are proxified' do
+      before { client.proxify(:foo, :bar) { |name| super(name + '-p1') } }
+      before { client.proxify(:foo, :bar) { |name| super(name + '-p2') } }
 
-      it 'redefines the proxified methods' do
+      it 'redefines the corresponding proxy methods' do
         %i[foo bar].each do |method|
-          expect(subject.send(method, 'jack')).to eq("#{method} JACK!")
+          expect(client.new.send(method, 'jack')).to eq("#{method}: jack-p2")
         end
       end
     end
@@ -61,43 +59,43 @@ RSpec.describe Proxified do
   describe '.unproxify' do
     before do
       %i[foo bar biz baz].each do |method|
-        client.define_method(method) { |name| "#{method} #{name}" }
+        client.define_method(method) { |name| "#{method}: #{name}" }
       end
     end
 
-    before { client.proxify(:foo, :bar, :biz) { |name| super(name.upcase) } }
-
-    subject { client.new }
+    before do
+      client.proxify(:foo, :bar, :biz) { |name| super(name + '-proxy') }
+    end
 
     describe 'when given no methods' do
       before { client.unproxify }
 
-      it 'unproxifies all the proxified methods' do
+      it 'removes all the methods from the proxy' do
         %i[foo bar biz].each do |method|
-          expect(subject.send(method, 'jack')).to eq("#{method} jack")
+          expect(client.new.send(method, 'jack')).to eq("#{method}: jack")
         end
       end
 
-      it 'does not remove other instance methods' do
-        expect(subject.baz('jack')).to eq('baz jack')
+      it 'does not affect other instance methods' do
+        expect(client.new.baz('jack')).to eq('baz: jack')
       end
     end
 
-    describe 'when given some methods' do
+    describe 'when given any methods' do
       before { client.unproxify(:foo, :bar) }
 
-      it 'unproxifies the given methods' do
+      it 'removes the given methods from the proxy' do
         %i[foo bar].each do |method|
-          expect(subject.send(method, 'jack')).to eq("#{method} jack")
+          expect(client.new.send(method, 'jack')).to eq("#{method}: jack")
         end
       end
 
-      it 'does not unproxify other proxified methods' do
-        expect(subject.biz('jack')).to eq('biz JACK')
+      it 'does not affect other proxy methods' do
+        expect(client.new.biz('jack')).to eq('biz: jack-proxy')
       end
 
-      it 'does not remove other instance methods' do
-        expect(subject.baz('jack')).to eq('baz jack')
+      it 'does not affect other instance methods' do
+        expect(client.new.baz('jack')).to eq('baz: jack')
       end
     end
   end
@@ -110,8 +108,8 @@ RSpec.describe Proxified do
         it { expect(client.proxified?).to be false }
       end
 
-      context 'and at least a method has been proxified' do
-        before { client.proxify(:foo) { super.upcase } }
+      context 'and at least one method has been proxified' do
+        before { client.proxify(:foo) { 'proxified' } }
 
         it { expect(client.proxified?).to be true }
       end
@@ -123,13 +121,13 @@ RSpec.describe Proxified do
       end
 
       context 'and the method has been proxified' do
-        before { client.proxify(:foo) { super.upcase } }
+        before { client.proxify(:foo) { 'proxified' } }
 
         it { expect(client.proxified?(:foo)).to be true }
       end
 
       context 'and the method has been proxified and then unproxified' do
-        before { client.proxify(:foo) { super.upcase } }
+        before { client.proxify(:foo) { 'proxified' } }
         before { client.unproxify(:foo) }
 
         it { expect(client.proxified?(:foo)).to be false }
@@ -138,93 +136,102 @@ RSpec.describe Proxified do
   end
 
   describe 'when a method is added to the client' do
-    subject { client.new }
-
     context 'and it has not been proxified' do
       before { client.define_method(:foo) { 'foo' } }
 
-      it 'is not defined as a proxy method' do
-        expect(subject.foo).to eq('foo')
+      it 'it is not added to the proxy' do
+        expect(client.new.foo).to eq('foo')
       end
     end
 
     context 'and it has been proxified' do
-      before { client.proxify(:foo) { 'bar' } }
+      before { client.proxify(:foo) { 'proxified' } }
 
       before { client.define_method(:foo) { 'foo' } }
 
-      it 'is defined as a proxy method' do
-        expect(subject.foo).to eq('bar')
+      it 'it is added to the proxy' do
+        expect(client.new.foo).to eq('proxified')
       end
     end
   end
 
   describe 'when a method is removed from the client' do
-    before { client.proxify(:foo) { 'bar' } }
-
     before { client.define_method(:foo) { 'foo' } }
 
-    before { client.remove_method(:foo) }
+    context 'and it has not been proxified' do
+      before { client.remove_method(:foo) }
 
-    subject { client.new }
+      it 'nothing happens' do
+        expect { client.new.foo }.to raise_error(NoMethodError)
+      end
+    end
 
-    it 'the corresponding method is removed from the proxy' do
-      expect { subject.foo }.to raise_error(NoMethodError)
+    context 'and it has been proxified' do
+      before { client.proxify(:foo) { 'proxified' } }
+
+      before { client.remove_method(:foo) }
+
+      it 'the corresponding method is removed from the proxy' do
+        expect { client.new.foo }.to raise_error(NoMethodError)
+      end
     end
   end
 
   describe 'descendants of the client' do
+    before do
+      %i[foo bar].each do |method|
+        client.define_method(method) { |name| "#{method}: #{name}" }
+      end
+    end
+
+    before { client.proxify(:foo) { |name| super(name + '-ParentProxy') } }
+
     let(:descendant) { Class.new(client) }
 
-    before { client.proxify(:welcome) { |name| super(name.upcase) } }
+    subject { descendant.new }
 
-    before { client.define_method(:welcome) { |name| "welcome #{name}!" } }
+    describe 'that proxify a standard method' do
+      before { descendant.proxify(:bar) { |name| super(name + '-ChildProxy') } }
 
-    describe 'inherit proxified methods' do
-      it { expect(descendant.proxified?(:welcome)).to be true }
+      it 'do not proxify the method on the parent' do
+        expect(client.new.bar('jack')).to eq('bar: jack')
+      end
+
+      it 'run the parent\'s original method within their proxy' do
+        expect(descendant.new.bar('jack')).to eq('bar: jack-ChildProxy')
+      end
     end
 
-    describe 'can override proxified methods without affecting the parent' do
-      before { descendant.unproxify(:welcome) }
-
-      it { expect(descendant.proxified?(:welcome)).to be false }
-      it { expect(client.proxified?(:welcome)).to be true }
-    end
-
-    describe 'who do not reproxify any method' do
-      subject { descendant.new }
-
+    describe 'that do not reproxify any proxified method' do
       context 'and do not redefine any proxified method' do
-        it 'run the parent\'s method within the parent\'s proxy' do
-          expect(subject.welcome('jack')).to eq('welcome JACK!')
+        it 'run the parent\'s original method within the parent\'s proxy' do
+          expect(subject.foo('jack')).to eq('foo: jack-ParentProxy')
         end
       end
 
       context 'and redefine a proxified method' do
-        before { descendant.define_method(:welcome) { |name| "hi #{name}!" } }
+        before { descendant.define_method(:foo) { |name| "nice foo: #{name}" } }
 
         it 'run their method within the parent\'s proxy' do
-          expect(subject.welcome('jack')).to eq('hi JACK!')
+          expect(subject.foo('jack')).to eq('nice foo: jack-ParentProxy')
         end
       end
     end
 
-    describe 'who reproxify a method' do
-      before { descendant.proxify(:welcome) { |name| super(name).upcase } }
-
-      subject { descendant.new }
+    describe 'that reproxify a proxified method' do
+      before { descendant.proxify(:foo) { |name| super(name + '-ChildProxy') } }
 
       context 'and do not redefine the reproxified method' do
-        it 'run the parent\'s method within their proxy' do
-          expect(subject.welcome('jack')).to eq('WELCOME JACK!')
+        it 'run the parent\'s proxy method within their proxy' do
+          expect(subject.foo('jack')).to eq('foo: jack-ChildProxy-ParentProxy')
         end
       end
 
       context 'and redefine the reproxified method' do
-        before { descendant.define_method(:welcome) { |name| "hi #{name}!" } }
+        before { descendant.define_method(:foo) { |name| "nice foo: #{name}" } }
 
         it 'run their method within their proxy' do
-          expect(subject.welcome('jack')).to eq('HI JACK!')
+          expect(subject.foo('jack')).to eq('nice foo: jack-ChildProxy')
         end
       end
     end
