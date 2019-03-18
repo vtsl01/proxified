@@ -1,8 +1,10 @@
+[![Gem Version](https://badge.fury.io/rb/proxified.svg)](https://badge.fury.io/rb/proxified)
+
 # Proxified
 
-Proxify any object with a few lines of code.
+A simple way to put a proxy in front of any object, at any time.
 
-A simple way to add (and remove) a proxy to any object's instance methods and to inherit and change the behaviour down the class hierarchy.
+You can add and remove a proxy to and from any object instance methods and inherit or change the behavior down the class hierarchy.
 
 ## Installation
 
@@ -22,114 +24,156 @@ Or install it yourself as:
 
 ## Usage
 
-Just `include Proxified` in your class and call `proxify` with the method(s) you want to proxify and the code you want to run.
+You have two options to *proxify* and *unproxify* objects:
 
-If you want to remove a proxy, just call `unproxify` with the method(s) you want to unproxify.
+  * *statically*: if you want to put a proxy on a class while defining it, just `include Proxified` and call `proxify` with the method(s) you want to *proxify* and the code you want to run.
+     When you want to remove a proxy, just call `unproxify` with the method(s) you want to *unproxify*, or without methods if you want to *unproxify* all *proxified* methods.
+     To check if a given method is *proxified*, call `proxified?` with the method name, or without arguments to check if any instance method is *proxified*.
 
-In order to not change the class interface, a method is only `proxified` when the corresponding instance method is defined (before or after the proxy definition).
-Similarly, a `proxified method` is removed whenever the corresponding instance method is removed from the class.
+  * *dynamically*: if you want to put a proxy on a class at runtime, or on a single object without affecting its class, call `Proxify` with the class/object and the method(s) you want to *proxify*.
+     Similarly, use `Unproxify` and `Proxified?` with the class/object and the method(s) you want to *unproxify*/*check*.
 
-Moreover, the `proxified methods` take the arguments specified by the `block`, so it should take the same arguments as the original `methods`.
-Finally, it's possible to call the actual `methods` invoking `super` inside the `block`.
+You can also mix the two approaches! (see the examples below)
+
+In order not to change the class interface, a method is only *proxified* when the corresponding instance method is defined (before or after the proxy definition).
+Similarly, a *proxified method* is removed whenever the corresponding instance method is removed from the class.
+
+Moreover, the *proxified methods* take the arguments specified by the block, so it should take the same arguments as the original methods.
+Finally, it's possible to call the actual methods invoking `super` inside the block.
 
 ```ruby
 
 require 'proxified'
 
-# Basic usage:
+# Static proxy:
+
 class A
   include Proxified
 
-  proxify :welcome, :goodbye do |name|
-    check(name)
-    super(name)
+  proxify :foo, :bar, :biz do
+    "proxified #{super()}"
   end
 
-  def check(name)
-    puts "checking #{name}"
-  end
+  def foo; 'foo'; end
 
-  def welcome(name)
-    puts "hello #{name}!"
-  end
+  def bar; 'bar'; end
 
-  def goodbye(name)
-    puts "goodbye #{name}!"
-  end
+  def biz; 'biz'; end
+
+  def baz; 'baz'; end
 end
 
-a = A.new
-a.welcome('jack') => 'checking jack'; 'welcome jack!';
-a.goodbye('jack') => 'checking jack'; 'goodbye jack!';
-a.welcome         => raises ArgumentError
-a.check('jack')   => 'checking jack' # not proxified
+A.ancestors # => [A::Proxy, A, Proxified, ...]
 
-# Unproxifing a proxified method:
-class B < A
-  unproxify :welcome
-end
+a1, a2 = A.new, A.new
 
-b = B.new
-b.welcome('jack') => 'welcome jack!';
-b.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+a1.foo # => 'proxified foo'
+a2.foo # => 'proxified foo'
+a1.bar # => 'proxified bar'
+a2.bar # => 'proxified bar'
+a1.biz # => 'proxified biz'
+a2.biz # => 'proxified biz'
+a1.baz # => 'baz'
+a2.baz # => 'baz'
 
 
-# Redefining a proxified method:
-class C < A
-  def welcome(name)
-    puts "welcome #{name.upcase}!"
-  end
-end
+# unproxify the :foo method
+A.unproxify(:foo)  # => [:foo]
 
-c = C.new
-c.welcome('jack') => 'checking jack'; 'welcome JACK!';
-c.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+# the :foo method is not proxified anymore
+A.proxified?(:foo) # => false
+# A is still proxified, i.e. it has at least one proxified method
+A.proxified?       # => true
 
-
-# Reproxifing a proxified method:
-class D < A
-  proxify :welcome do |name|
-    super(name.upcase)
-  end
-end
-
-d = D.new
-d.welcome('jack') => 'checking JACK'; 'welcome JACK!';
-d.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+a1.foo # => 'foo'
+a2.foo # => 'foo'
+a1.bar # => 'proxified bar'
+a2.bar # => 'proxified bar'
+a1.biz # => 'proxified biz'
+a2.biz # => 'proxified biz'
+a1.baz # => 'baz'
+a2.baz # => 'baz'
 
 
-# Reproxifing and redefining a proxified method:
-class E < A
-  proxify :welcome do |name|
-    super(name.upcase)
-  end
+# unproxify all the methods
+A.unproxify  # => [:bar, :biz]
 
-  def welcome(name)
-    puts "hello #{name}!"
-  end
-end
+# A is not proxified anymore
+A.proxified? # => false
 
-e = E.new
-e.welcome('jack') => 'hello JACK!';
-e.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+a1.foo # => 'foo'
+a2.foo # => 'foo'
+a1.bar # => 'bar'
+a2.bar # => 'bar'
+a1.biz # => 'biz'
+a2.biz # => 'biz'
+a1.baz # => 'baz'
+a2.baz # => 'baz'
 
 
-# Redefining a proxified method to call super:
-class F < A
-  def welcome(name)
-    # Will call F's proxy, then A's proxy and finally A's method
-    super(name)
-    puts 'hi'
-  end
-end
+# Dynamic proxy:
 
-f = F.new
-f.welcome('jack') => 'checking jack'; 'checking jack'; 'welcome jack!'; 'hi';
-f.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+# on a class
+Proxify(A, :foo, :bar) { 'proxified again' } # => [:foo, :bar]
+
+a1.foo # => 'proxified again'
+a2.foo # => 'proxified again'
+a1.bar # => 'proxified again'
+a2.bar # => 'proxified again'
+a1.biz # => 'biz'
+a2.biz # => 'biz'
+a1.baz # => 'baz'
+a2.baz # => 'baz'
+
+
+# on a single object
+Proxify(a1, :bar, :biz) { 'singleton proxy' } # => [:bar, :biz]
+
+a1.foo # => 'proxified again'
+a2.foo # => 'proxified again'
+a1.bar # => 'singleton proxy'
+a2.bar # => 'proxified again'
+a1.biz # => 'singleton proxy'
+a2.biz # => 'biz'
+a1.baz # => 'baz'
+a2.baz # => 'baz'
+
+
+# unproxify all the methods of a1
+Unproxify(a1)  # => [:foo, :bar, :biz]
+
+# still proxified because of the class' proxy
+Proxified?(a1) # => true
+
+a1.foo # => 'proxified again'
+a2.foo # => 'proxified again'
+a1.bar # => 'proxified again'
+a2.bar # => 'proxified again'
+a1.biz # => 'biz'
+a2.biz # => 'biz'
+a1.baz # => 'baz'
+a2.baz # => 'baz'
+
+
+# unproxify all the methods of A
+Unproxify(A, :foo, :bar)  # => [:foo, :bar]
+
+a1.foo # => 'foo'
+a2.foo # => 'foo'
+a1.bar # => 'bar'
+a2.bar # => 'bar'
+a1.biz # => 'biz'
+a2.biz # => 'biz'
+a1.baz # => 'baz'
+a2.baz # => 'baz'
+
 ```
+
+Just look at the code documentation to see more examples of what you can/cannot do.
+
 ## Notes
 
-This is my first gem, something I extracted from a bigger project and a first attempt to give back something to the community.
+This is my first gem, something I extracted from a bigger project and a first attempt to give something back to the community.
 
 Any constructive feedback is welcome and appreciated, thank you!
 
