@@ -3,6 +3,11 @@ AllCops:
 
 Metrics/BlockLength:
   Exclude:
+    - lib/proxified.rb
     - spec/**/*
     - Guardfile
     - proxified.gemspec
+
+Naming/MethodName:
+  Exclude:
+    - lib/proxified.rb
