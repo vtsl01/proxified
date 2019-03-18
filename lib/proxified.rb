@@ -68,23 +68,23 @@ module Proxified
     #     end
     #   end
     #
-    #   A.ancestors => [A::Proxy, A, Proxified, ...]
+    #   A.ancestors       # => [A::Proxy, A, Proxified, ...]
     #
     #   a = A.new
-    #   a.welcome('jack') => 'checking jack'; 'welcome jack!';
-    #   a.goodbye('jack') => 'checking jack'; 'goodbye jack!';
-    #   a.welcome => raises ArgumentError
-    #   a.check('jack') => 'checking jack' # not proxified
+    #   a.welcome('jack') # => 'checking jack'; 'welcome jack!';
+    #   a.goodbye('jack') # => 'checking jack'; 'goodbye jack!';
+    #   a.welcome         # => raises ArgumentError
+    #   a.check('jack')   # => 'checking jack' (not proxified)
     #
     #
     # Just inheriting:
     #   class B < A; end
     #
-    #   B.ancestors => [B, A::Proxy, A, Proxified, ...]
+    #   B.ancestors       # => [B, A::Proxy, A, Proxified, ...]
     #
     #   b = B.new
-    #   b.welcome('jack') => 'checking jack'; 'welcome jack!';
-    #   b.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    #   b.welcome('jack') # => 'checking jack'; 'welcome jack!';
+    #   b.goodbye('jack') # => 'checking jack'; 'goodbye jack!';
     #
     #
     # Inheriting and redefining a _proxified_ _method_:
@@ -94,11 +94,11 @@ module Proxified
     #     end
     #   end
     #
-    #   C.ancestors => [C::Proxy, C, A::Proxy, A, Proxified, ...]
+    #   C.ancestors       # => [C::Proxy, C, A::Proxy, A, Proxified, ...]
     #
     #   c = C.new
-    #   c.welcome('jack') => 'checking jack'; 'welcome JACK!';
-    #   c.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    #   c.welcome('jack') # => 'checking jack'; 'welcome JACK!';
+    #   c.goodbye('jack') # => 'checking jack'; 'goodbye jack!';
     #
     #
     # Inheriting and _reproxifing_ a _proxified_ _method_:
@@ -108,11 +108,11 @@ module Proxified
     #     end
     #   end
     #
-    #   D.ancestors => [D::Proxy, D, A::Proxy, A, Proxified, ...]
+    #   D.ancestors       # => [D::Proxy, D, A::Proxy, A, Proxified, ...]
     #
     #   d = D.new
-    #   d.welcome('jack') => 'checking JACK'; 'welcome JACK!';
-    #   d.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    #   d.welcome('jack') # => 'checking JACK'; 'welcome JACK!';
+    #   d.goodbye('jack') # => 'checking jack'; 'goodbye jack!';
     #
     #
     # Inheriting, _reproxifing_ and redefining a _proxified_ _method_:
@@ -126,11 +126,11 @@ module Proxified
     #     end
     #   end
     #
-    #   E.ancestors => [E::Proxy, E, A::Proxy, A, Proxified, ...]
+    #   E.ancestors       # => [E::Proxy, E, A::Proxy, A, Proxified, ...]
     #
     #   e = E.new
-    #   e.welcome('jack') => 'hello JACK!';
-    #   e.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    #   e.welcome('jack') # => 'hello JACK!';
+    #   e.goodbye('jack') # => 'checking jack'; 'goodbye jack!';
     #
     #
     # Inheriting and redefining a _proxified_ _method_ to call +super+:
@@ -141,11 +141,11 @@ module Proxified
     #     end
     #   end
     #
-    #   F.ancestors => [F::Proxy, F, A::Proxy, A, Proxified, ...]
+    #   F.ancestors       # => [F::Proxy, F, A::Proxy, A, Proxified, ...]
     #
     #   f = F.new
-    #   f.welcome('jack') => 'checking jack'; 'checking jack'; 'welcome jack!'; 'hi';
-    #   f.goodbye('jack') => 'checking jack'; 'goodbye jack!';
+    #   f.welcome('jack') # => 'checking jack'; 'checking jack'; 'welcome jack!'; 'hi';
+    #   f.goodbye('jack') # => 'checking jack'; 'goodbye jack!';
     def proxify(*methods, &block)
       raise ArgumentError, 'no block given' unless block_given?
       raise ArgumentError, 'no methods given' if methods.empty?
@@ -182,14 +182,14 @@ module Proxified
     #   end
     #
     #   A.unproxify(:foo)
-    #   a.foo => 'foo;
-    #   a.bar => 'BAR'
-    #   a.biz => 'BIZ'
+    #   a.foo # => 'foo;
+    #   a.bar # => 'BAR'
+    #   a.biz # => 'BIZ'
     #
     #   A.unproxify
-    #   a.foo => 'foo;
-    #   a.bar => 'bar'
-    #   a.biz => 'biz'
+    #   a.foo # => 'foo;
+    #   a.bar # => 'bar'
+    #   a.biz # => 'biz'
     def unproxify(*methods)
       methods = proxified_methods.keys if methods.empty?
 
@@ -223,22 +223,22 @@ module Proxified
     #     end
     #   end
     #
-    #   A.proxified?       => true
-    #   A.proxified?(:foo) => true
-    #   A.proxified?(:bar) => true
-    #   A.proxified?(:biz) => false
+    #   A.proxified?       # => true
+    #   A.proxified?(:foo) # => true
+    #   A.proxified?(:bar) # => true
+    #   A.proxified?(:biz) # => false
     #
     #   A.unproxify(:foo)
-    #   A.proxified?       => true
-    #   A.proxified?(:foo) => false
-    #   A.proxified?(:bar) => true
-    #   A.proxified?(:biz) => false
+    #   A.proxified?       # => true
+    #   A.proxified?(:foo) # => false
+    #   A.proxified?(:bar) # => true
+    #   A.proxified?(:biz) # => false
     #
     #   A.unproxify(:bar)
-    #   A.proxified?       => false
-    #   A.proxified?(:foo) => false
-    #   A.proxified?(:bar) => false
-    #   A.proxified?(:biz) => false
+    #   A.proxified?       # => false
+    #   A.proxified?(:foo) # => false
+    #   A.proxified?(:bar) # => false
+    #   A.proxified?(:biz) # => false
     def proxified?(method = nil)
       method.nil? ? proxified_methods.any? : method.in?(proxified_methods)
     end
