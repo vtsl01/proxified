@@ -5,6 +5,13 @@ require 'active_support/core_ext'
 
 # Allows to _proxify_ and _unproxify_ any instance method of a class with
 # custom code and to inherit and change the behaviour down the class hierarchy.
+#
+# The global methods allow to dinamically _proxify_ and _unproxify_ a class or
+# an object injecting Proxified in the class or the object's singleton class.
+#
+# This makes possible to dinamically wrap a proxy around any class with no need
+# for the class to know it, and to change the behaviour of one or more objects
+# without side effects on other objects of the same class.
 module Proxified
   extend ::ActiveSupport::Concern
 
@@ -272,5 +279,358 @@ module Proxified
 
       const_set('Proxy', Module.new).tap { |proxy| prepend proxy }
     end
+  end
+end
+
+# Injects Proxified in the +receiver+ and _proxifies_ the given +methods+, or
+# raises ArgumentError if no +block+ or no +methods+ are given.
+#
+# +receiver+ can be a class or an ordinary object.
+#
+# If +receiver+ is a class, it is equivalent to including Proxified and calling
+# .proxify.
+#
+# If +receiver+ is an object, Proxified is injected in its singleton class and
+# other objects of the same class will not be affected.
+#
+# If +receiver+ is an object of a _proxified_ class, the class' proxy is
+# overridden but other objects of the class will not be affected.
+#
+# See Proxified.proxify for further details.
+#
+# ======Examples
+#
+# _Proxifying_ a class:
+#   class A
+#     def foo
+#       'foo'
+#     end
+#
+#     def bar
+#       'bar'
+#     end
+#   end
+#
+#   a1, a2 = A.new, A.new
+#
+#   Proxify(A, :foo) { super().upcase }
+#   a1.foo # => 'FOO'
+#   a2.foo # => 'FOO'
+#   a1.bar # => 'bar'
+#   a2.bar # => 'bar'
+#
+#
+# _Proxifying_ an object:
+#   class B
+#     def foo
+#       'foo'
+#     end
+#
+#     def bar
+#       'bar'
+#     end
+#   end
+#
+#   b1, b2 = B.new, B.new
+#
+#   Proxify(b1, :foo) { super().upcase }
+#   b1.foo # => 'FOO'
+#   b2.foo # => 'foo'
+#   b1.bar # => 'bar'
+#   b2.bar # => 'bar'
+#
+#
+# _Reproxifying_ an object of a _proxified_ class:
+#   class C
+#     def foo
+#       'foo'
+#     end
+#
+#     def bar
+#       'bar'
+#     end
+#   end
+#
+#   c1, c2 = C.new, C.new
+#
+#   Proxify(C, :foo, :bar) { super().upcase }
+#
+#   # the class proxy is overridden
+#   Proxify(c1, :foo) { 'proxified' }
+#   c1.foo # => 'proxified'
+#   c2.foo # => 'FOO'
+#   c1.bar # => 'BAR'
+#   c2.bar # => 'BAR'
+#
+#   # if super is called the class' proxy will also be called
+#   Proxify(c1, :foo) { "i am a proxified #{super()}"}
+#   c1.foo # => 'i am a proxified FOO'
+#   c2.foo # => 'FOO'
+#   c1.bar # => 'BAR'
+#   c2.bar # => 'BAR'
+def Proxify(receiver, *methods, &block)
+  raise ArgumentError, 'no block given' unless block_given?
+  raise ArgumentError, 'no methods given' if methods.empty?
+
+  target = receiver.is_a?(Class) ? receiver : receiver.singleton_class
+
+  target.include(Proxified).proxify(*methods, &block)
+end
+
+# If the +receiver+ is _proxified_ unproxifies the given +methods+, or all the
+# _proxified_ _methods_ if no +methods+ are given.
+#
+# +receiver+ can be a class or an ordinary object.
+#
+# If +receiver+ is an object of a _proxified_ class only its (eventual) proxy
+# methods will be removed and the proxy of the class will not be affected.
+#
+# See Proxified.unproxify for further details.
+#
+# ======Examples
+#
+# _Unproxifying_ a _proxified_ class:
+#   class A
+#     def foo
+#       'foo'
+#     end
+#
+#     def bar
+#       'bar'
+#     end
+#
+#     def biz
+#       'biz'
+#     end
+#   end
+#
+#   a1, a2 = A.new, A.new
+#
+#   Proxify(A, :foo, :bar, :biz) { super().upcase }
+#
+#   Unproxify(A, :foo)
+#   a1.foo # => 'foo'
+#   a2.foo # => 'foo'
+#   a1.bar # => 'BAR'
+#   a2.bar # => 'BAR'
+#   a1.biz # => 'BIZ'
+#   a2.biz # => 'BIZ'
+#
+#   Unproxify(A)
+#   a1.foo # => 'foo'
+#   a2.foo # => 'foo'
+#   a1.bar # => 'bar'
+#   a2.bar # => 'bar'
+#   a1.biz # => 'biz'
+#   a2.biz # => 'biz'
+#
+#
+# _Unproxifying_ a _proxified_ object:
+#   class B
+#     def foo
+#       'foo'
+#     end
+#
+#     def bar
+#       'bar'
+#     end
+#
+#     def biz
+#       'biz'
+#     end
+#   end
+#
+#   b1, b2 = B.new, B.new
+#
+#   Proxify(b1, :foo, :bar, :biz) { super().upcase }
+#
+#   Unproxify(b1, :foo)
+#   b1.foo # => 'foo'
+#   b2.foo # => 'foo'
+#   b1.bar # => 'BAR'
+#   b2.bar # => 'BAR'
+#   b1.biz # => 'BIZ'
+#   b2.biz # => 'BIZ'
+#
+#   Unproxify(b1)
+#   b1.foo # => 'foo'
+#   b2.foo # => 'foo'
+#   b1.bar # => 'bar'
+#   b2.bar # => 'bar'
+#   b1.biz # => 'biz'
+#   b2.biz # => 'biz'
+#
+#
+# Trying to _unproxify_ an object of a _proxified_ class:
+#   class C
+#     def foo
+#       'foo'
+#     end
+#   end
+#
+#   c1, c2 = C.new, C.new
+#
+#   Proxify(C, :foo) { super().upcase }
+#
+#   Unproxify(c1)
+#   c1.foo # => 'FOO' (does not work because an object cannot affect its class)
+#   c2.foo # => 'FOO'
+#
+#
+# _Unproxifying_ a _reproxified_ object of a _proxified_ class:
+#   class D
+#     def foo
+#       'foo'
+#     end
+#   end
+#
+#   d1, d2 = D.new, D.new
+#
+#   Proxify(D, :foo) { super().upcase }
+#
+#   Proxify(d1, :foo) { 'proxified'}
+#
+#   Unproxify(d1)
+#   d1.foo # => 'FOO' (the class proxy is restored)
+#   d2.foo # => 'FOO'
+def Unproxify(receiver, *methods)
+  target = receiver.is_a?(Class) ? receiver : receiver.singleton_class
+
+  Proxified?(target) ? target.unproxify(*methods) : methods
+end
+
+# If given no +method+, checks whether any of the +receiver+'s instance
+# methods is _proxified_, otherwise it checks for the given +method+.
+#
+# +receiver+ can be a class or an ordinary object.
+#
+# If +receiver+ is an object of a _proxified_ class and the class has at least a
+# _proxified_ method, will return true even when the +receiver+ has no
+# _proxified_ methods.
+#
+# See Proxified.proxified? for further details.
+#
+# ======Examples
+#
+# Checking if a class is _proxified_:
+#   class A
+#     def foo
+#       'foo'
+#     end
+#
+#     def bar
+#       'bar'
+#     end
+#   end
+#
+#   Proxified?(A)       # => false
+#   Proxified?(A, :foo) # => false
+#   Proxified?(A, :bar) # => false
+#
+#   Proxify(A, :foo, :bar) { 'proxified' }
+#   Proxified?(A)       # => true
+#   Proxified?(A, :foo) # => true
+#   Proxified?(A, :bar) # => true
+#
+#   Unproxify(A, :foo)
+#   Proxified?(A)       # => true
+#   Proxified?(A, :foo) # => false
+#   Proxified?(A, :bar) # => true
+#
+#   Unproxify(A, :bar)
+#   Proxified?(A)       # => false
+#   Proxified?(A, :foo) # => false
+#   Proxified?(A, :bar) # => false
+#
+#
+# Checking if an object is _proxified_:
+#   class B
+#     def foo
+#       'foo'
+#     end
+#
+#     def bar
+#       'bar'
+#     end
+#   end
+#
+#   b1, b2 = B.new, B.new
+#
+#   Proxified?(b1)       # => false
+#   Proxified?(b1, :foo) # => false
+#   Proxified?(b1, :bar) # => false
+#   Proxified?(b2)       # => false
+#   Proxified?(b2, :foo) # => false
+#   Proxified?(b2, :bar) # => false
+#
+#   Proxify(b1, :foo) { 'proxified' }
+#   Proxified?(b1)       # => true
+#   Proxified?(b1, :foo) # => true
+#   Proxified?(b1, :bar) # => false
+#   Proxified?(b2)       # => false
+#   Proxified?(b2, :foo) # => false
+#   Proxified?(b2, :bar) # => false
+#
+#   Unproxify(b1)
+#   Proxified?(b1)       # => false
+#   Proxified?(b1, :foo) # => false
+#   Proxified?(b1, :bar) # => false
+#   Proxified?(b2)       # => false
+#   Proxified?(b2, :foo) # => false
+#   Proxified?(b2, :bar) # => false
+#
+#
+# Checking if an object of a _proxified_ class is _proxified_:
+#   class C
+#     def foo
+#       'foo'
+#     end
+#
+#     def bar
+#       'bar'
+#     end
+#   end
+#
+#   c1, c2 = C.new, C.new
+#
+#   Proxify(C, :foo) { 'proxified' }
+#
+#   Proxified?(c1)       # => true
+#   Proxified?(c1, :foo) # => true
+#   Proxified?(c1, :bar) # => false
+#   Proxified?(c2)       # => true
+#   Proxified?(c2, :foo) # => true
+#   Proxified?(c2, :bar) # => false
+#
+#   Unproxify(c1)
+#   Proxified?(c1)       # => true (the class is not affected)
+#   Proxified?(c1, :foo) # => true
+#   Proxified?(c1, :bar) # => false
+#   Proxified?(c2)       # => true
+#   Proxified?(c2, :foo) # => true
+#   Proxified?(c2, :bar) # => false
+#
+#   Unproxify(C)
+#   Proxified?(c1)       # => false
+#   Proxified?(c1, :foo) # => false
+#   Proxified?(c1, :bar) # => false
+#   Proxified?(c2)       # => false
+#   Proxified?(c2, :foo) # => false
+#   Proxified?(c2, :bar) # => false
+#
+#   Proxify(c1, :foo) { 'proxified' }
+#   Unproxify(C)
+#   Proxified?(c1)       # => true (is not affected by the class)
+#   Proxified?(c1, :foo) # => true
+#   Proxified?(c1, :bar) # => false
+#   Proxified?(c2)       # => false
+#   Proxified?(c2, :foo) # => false
+#   Proxified?(c2, :bar) # => false
+def Proxified?(receiver, method = nil)
+  if receiver.is_a?(Class)
+    receiver.include?(Proxified) && receiver.proxified?(method)
+  else
+    Proxified?(receiver.singleton_class, method) ||
+      Proxified?(receiver.class, method)
   end
 end

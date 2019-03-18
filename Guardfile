@@ -48,6 +48,8 @@ group :red_green_refactor, halt_on_fail: true do
     # Ruby files
     ruby = dsl.ruby
     dsl.watch_spec_files_for(ruby.lib_files)
+
+    watch(ruby.lib_files) { "#{rspec.spec_dir}/global_methods_spec.rb" }
   end
 
   guard :rubocop, all_on_start: true, cli: ['-a'] do
