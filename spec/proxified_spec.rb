@@ -23,7 +23,7 @@ RSpec.describe Proxified do
     end
 
     context 'when the given methods are not proxified' do
-      before { client.proxify(:foo, :bar) { |name| super(name + '-proxy') } }
+      before { client.proxify(:foo, :bar) { |name| super("#{name}-proxy") } }
 
       it 'for each method defines a proxy method that takes the block args' do
         %i[foo bar].each do |method|
@@ -45,8 +45,8 @@ RSpec.describe Proxified do
     end
 
     context 'when the given methods are proxified' do
-      before { client.proxify(:foo, :bar) { |name| super(name + '-p1') } }
-      before { client.proxify(:foo, :bar) { |name| super(name + '-p2') } }
+      before { client.proxify(:foo, :bar) { |name| super("#{name}-p1") } }
+      before { client.proxify(:foo, :bar) { |name| super("#{name}-p2") } }
 
       it 'redefines the corresponding proxy methods' do
         %i[foo bar].each do |method|
@@ -64,7 +64,7 @@ RSpec.describe Proxified do
     end
 
     before do
-      client.proxify(:foo, :bar, :biz) { |name| super(name + '-proxy') }
+      client.proxify(:foo, :bar, :biz) { |name| super("#{name}-proxy") }
     end
 
     describe 'when given no methods' do
@@ -184,14 +184,14 @@ RSpec.describe Proxified do
       end
     end
 
-    before { client.proxify(:foo) { |name| super(name + '-ParentProxy') } }
+    before { client.proxify(:foo) { |name| super("#{name}-ParentProxy") } }
 
     let(:descendant) { Class.new(client) }
 
     subject { descendant.new }
 
     describe 'that proxify a standard method' do
-      before { descendant.proxify(:bar) { |name| super(name + '-ChildProxy') } }
+      before { descendant.proxify(:bar) { |name| super("#{name}-ChildProxy") } }
 
       it 'do not proxify the method on the parent' do
         expect(client.new.bar('jack')).to eq('bar: jack')
@@ -219,7 +219,7 @@ RSpec.describe Proxified do
     end
 
     describe 'that reproxify a proxified method' do
-      before { descendant.proxify(:foo) { |name| super(name + '-ChildProxy') } }
+      before { descendant.proxify(:foo) { |name| super("#{name}-ChildProxy") } }
 
       context 'and do not redefine the reproxified method' do
         it 'run the parent\'s proxy method within their proxy' do

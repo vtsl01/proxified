@@ -1,7 +1,27 @@
-# Build args for base image
-ARG bundle_path
-# Base image with the tools to build a ruby gem
-FROM awruby:gems
+# Base Ruby image
+FROM ruby:3.3.0-slim
+
+# Install the (minimum) required packages
+RUN apt-get update -qq && apt-get install -y --fix-missing --no-install-recommends \
+      # Required packages for building gems etc
+      build-essential \
+      git \
+    # Clean apt cache
+    && rm -rf /var/lib/apt/lists/*
+
+# Base args
+ARG home=/home
+ARG bundle_path=/usr/local/bundle
+
+# Set base environment variables
+ENV HOME=$home \
+    BUNDLE_PATH=$bundle_path \
+    BUNDLE_APP_CONFIG=$bundle_path \
+    GEM_HOME=$bundle_path \
+    PATH=$PATH:$bundle_path/bin:$bundle_path/gems/bin
+
+# Create base directories if do not exist
+RUN mkdir -p $HOME $BUNDLE_PATH
 
 # App user and dirs args
 ARG app_name

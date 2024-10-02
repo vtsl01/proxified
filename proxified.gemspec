@@ -42,15 +42,15 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ['lib']
 
-  spec.required_ruby_version = '~> 2.6'
+  spec.required_ruby_version = '~> 3.3'
 
-  spec.add_development_dependency 'bundler', '~> 1.17'
+  spec.add_development_dependency 'bundler', '~> 2.5'
   spec.add_development_dependency 'guard', '~> 2.15'
   spec.add_development_dependency 'guard-bundler', '~> 2.2', '>= 2.2.1'
   spec.add_development_dependency 'guard-rspec', '~> 4.7', '>= 4.7.3'
   spec.add_development_dependency 'guard-rubocop', '~> 1.3'
-  spec.add_development_dependency 'rake', '~> 10.0'
+  spec.add_development_dependency 'rake', '~> 12.3.3'
   spec.add_development_dependency 'rspec', '~> 3.8'
 
-  spec.add_dependency 'activesupport', '~> 5.2', '>= 5.2.2'
+  spec.add_dependency 'activesupport', '~> 5.2.4'
 end

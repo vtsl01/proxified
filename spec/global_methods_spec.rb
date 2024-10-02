@@ -37,7 +37,7 @@ RSpec.describe 'Proxify()' do
     subject { receiver.new }
 
     context 'and the given methods are not proxified' do
-      before { Proxify(receiver, :foo, :bar) { |name| super(name + '-proxy') } }
+      before { Proxify(receiver, :foo, :bar) { |name| super("#{name}-proxy") } }
 
       it 'injects Proxified in the receiver' do
         expect(receiver.include?(Proxified)).to be true
@@ -57,8 +57,8 @@ RSpec.describe 'Proxify()' do
     end
 
     context 'and the given methods are proxified' do
-      before { Proxify(receiver, :foo, :bar) { |name| super(name + '-p1') } }
-      before { Proxify(receiver, :foo, :bar) { |name| super(name + '-p2') } }
+      before { Proxify(receiver, :foo, :bar) { |name| super("#{name}-p1") } }
+      before { Proxify(receiver, :foo, :bar) { |name| super("#{name}-p2") } }
 
       it 'redefines the corresponding proxy methods' do
         %i[foo bar].each do |method|
@@ -81,7 +81,7 @@ RSpec.describe 'Proxify()' do
 
     describe 'of a standard class' do
       context 'and the given methods are not proxified' do
-        before { Proxify(receiver, :foo, :bar) { |name| super(name + '-prx') } }
+        before { Proxify(receiver, :foo, :bar) { |name| super("#{name}-prx") } }
 
         it 'injects Proxified in the receiver\'s singleton class' do
           expect(receiver.singleton_class.include?(Proxified)).to be true
@@ -117,8 +117,8 @@ RSpec.describe 'Proxify()' do
       end
 
       context 'and the given methods are proxified' do
-        before { Proxify(receiver, :foo, :bar) { |name| super(name + '-p1') } }
-        before { Proxify(receiver, :foo, :bar) { |name| super(name + '-p2') } }
+        before { Proxify(receiver, :foo, :bar) { |name| super("#{name}-p1") } }
+        before { Proxify(receiver, :foo, :bar) { |name| super("#{name}-p2") } }
 
         it 'reproxifies the given methods on the receiver' do
           %i[foo bar].each do |method|
@@ -130,8 +130,8 @@ RSpec.describe 'Proxify()' do
 
     describe 'of a proxified class' do
       context 'and the given methods are not proxified' do
-        before { Proxify(receiver_class, :foo) { |name| super(name + '-p1') } }
-        before { Proxify(receiver, :bar, :biz) { |name| super(name + '-p2') } }
+        before { Proxify(receiver_class, :foo) { |name| super("#{name}-p1") } }
+        before { Proxify(receiver, :bar, :biz) { |name| super("#{name}-p2") } }
 
         it 'proxifies the given methods on the receiver' do
           %i[bar biz].each do |method|
@@ -165,11 +165,11 @@ RSpec.describe 'Proxify()' do
       context 'and the given methods are proxified on the receiver\'s class' do
         before do
           Proxify(receiver_class, :foo, :bar, :biz) do |name|
-            super(name + '-p1')
+            super("#{name}-p1")
           end
         end
 
-        before { Proxify(receiver, :foo, :bar) { |name| super(name + '-p2') } }
+        before { Proxify(receiver, :foo, :bar) { |name| super("#{name}-p2") } }
 
         it 'reproxifies the given methods on the receiver' do
           %i[foo bar].each do |method|
@@ -202,12 +202,12 @@ RSpec.describe 'Proxify()' do
 
       context 'and the given methods are proxified on the receiver' do
         before do
-          Proxify(receiver_class, :foo) { |name| super(name + '-p1') }
+          Proxify(receiver_class, :foo) { |name| super("#{name}-p1") }
         end
 
-        before { Proxify(receiver, :bar, :biz) { |name| super(name + '-p2') } }
+        before { Proxify(receiver, :bar, :biz) { |name| super("#{name}-p2") } }
 
-        before { Proxify(receiver, :bar, :biz) { |name| super(name + '-p3') } }
+        before { Proxify(receiver, :bar, :biz) { |name| super("#{name}-p3") } }
 
         it 'reproxifies the given methods on the receiver' do
           %i[bar biz].each do |method|
@@ -252,7 +252,7 @@ RSpec.describe 'Unproxify()' do
     end
 
     before do
-      Proxify(receiver, :foo, :bar, :biz) { |name| super(name + '-proxy') }
+      Proxify(receiver, :foo, :bar, :biz) { |name| super("#{name}-proxy") }
     end
 
     context 'and is given no method' do
@@ -301,7 +301,7 @@ RSpec.describe 'Unproxify()' do
 
     describe 'of a standard class' do
       before do
-        Proxify(receiver, :foo, :bar, :biz) { |name| super(name + '-proxy') }
+        Proxify(receiver, :foo, :bar, :biz) { |name| super("#{name}-proxy") }
       end
 
       context 'and is given no method' do
@@ -351,11 +351,11 @@ RSpec.describe 'Unproxify()' do
 
     describe 'of a proxified class' do
       before do
-        Proxify(receiver_class, :foo, :bar) { |name| super(name + '-p1') }
+        Proxify(receiver_class, :foo, :bar) { |name| super("#{name}-p1") }
       end
 
       before do
-        Proxify(receiver, :foo, :bar, :biz) { |name| super(name + '-p2') }
+        Proxify(receiver, :foo, :bar, :biz) { |name| super("#{name}-p2") }
       end
 
       context 'and is given no method' do

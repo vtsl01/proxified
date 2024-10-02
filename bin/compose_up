@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+# shortcut with necessary args in remote dev envs (e.g. env-file)
+docker compose -f "docker-compose.yml" --env-file ".env.remote_dev" up -d --build

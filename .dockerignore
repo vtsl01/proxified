@@ -2,6 +2,7 @@
 docker-compose.yml
 Dockerfile
 .env
+.env.remote_dev
 
 log
 tmp

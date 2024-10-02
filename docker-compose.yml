@@ -1,5 +1,3 @@
-version: "3.7"
-
 services:
   app:
     build:
@@ -12,7 +10,7 @@ services:
       - bundle:$BUNDLE_PATH
     tty: true
   guard:
-    image: "${APP_NAME}_app:latest"
+    image: "${APP_NAME}-app:latest"
     volumes:
       - .:$REPO_PATH
       - bundle:$BUNDLE_PATH
